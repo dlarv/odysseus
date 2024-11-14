@@ -8,7 +8,8 @@ struct RequirementBuilder(Regex, DefaultHasher);
 #[derive(Debug, Clone)]
 pub struct Requirement {
     pub category: Rc<String>,
-    pub id: String,
+    pub hash: String,
+    pub id: Vec<usize>,
     pub contents: String,
     pub status: u8
 }
@@ -18,8 +19,7 @@ impl RequirementBuilder {
         // (@<hash>)
         return RequirementBuilder(Regex::new(r"\(@\S*\)$").unwrap(), DefaultHasher::new());
     }
-    pub fn build(&mut self, contents: String, id: &Vec<usize>, category: Rc<String>) -> (Requirement, String) {
-        let id: String = id.into_iter().fold(String::new(), |acc, x| format!("{acc}.{x}")).trim_matches('.').to_string();
+    pub fn build(&mut self, contents: String, id: Vec<usize>, category: Rc<String>) -> Requirement {
         let content;
         let hash = match self.0.find(&contents) {
             Some(hash) => {
@@ -39,18 +39,37 @@ impl RequirementBuilder {
             }
         };
 
-        return (
-            Requirement { 
+        return Requirement { 
                 category, 
                 id, 
+                hash,
                 contents: content,
                 status: 0 
-            }, 
-            hash);
+            };
+    }
+}
+impl Requirement {
+    pub fn to_text_format(&self) -> String {
+        let tabs = "\t".repeat(self.id.len() - 1);
+        let line_num = self.id.last().unwrap_or(&0);
+        return format!("{tabs}{line_num}. {0}(@{1})", self.contents, self.hash);
+    }
+    pub fn to_csv_format(&self) -> String {
+        // Hash,Category,Id,Name,Status
+        return format!("{hash},{cat},{id},{contents},{status}", 
+            hash=self.hash, 
+            cat=self.category,
+            id=self.id_to_string(),
+            contents=self.contents,
+            status=self.status);
+    }
+
+    pub fn id_to_string(&self) -> String {
+        return self.id.iter().fold(String::new(), |acc, x| format!("{acc}.{x}")).trim_matches('.').to_string();
     }
 }
 
-pub fn parse_requirements(path: &PathBuf) -> Option<HashMap<String, Requirement>> {
+pub fn parse_requirements(path: &PathBuf) -> Option<Vec<Requirement>> {
     let contents = match File::open(path) {
         Ok(mut file) => {
             let mut output = String::new();
@@ -66,7 +85,7 @@ pub fn parse_requirements(path: &PathBuf) -> Option<HashMap<String, Requirement>
     let cat_regex =  Regex::new(r"\(.*\)$").unwrap();
     let mut builder = RequirementBuilder::new();
 
-    let mut output: HashMap<String, Requirement> = HashMap::new();
+    let mut output: Vec<Requirement> = Vec::new();
     let mut id: Vec<usize> = Vec::new();
     let mut category = Rc::new(String::new());
     let mut prev_tab_level = 0;
@@ -115,13 +134,14 @@ pub fn parse_requirements(path: &PathBuf) -> Option<HashMap<String, Requirement>
                 id[index] = item_num;
             }
             prev_tab_level = tab_level;
-            let (val, key) = builder.build(content, &id, category.clone());
-            if let Some(collision) = output.insert(key.clone(), val.clone()) {
-                printerror!("There was a hash collision while reading the requirements file.");
-                printerror!("Original value: {collision:?}");
-                printerror!("New value (@line {i}: {val:?}");
-                printerror!("Colliding hash: {key:?}");
-            }
+            let req = builder.build(content, id.clone(), category.clone());
+            output.push(req);
+            // if let Some(collision) = output.insert(key.clone(), val.clone()) {
+            //     printerror!("There was a hash collision while reading the requirements file.");
+            //     printerror!("Original value: {collision:?}");
+            //     printerror!("New value (@line {i}: {val:?}");
+            //     printerror!("Colliding hash: {key:?}");
+            // }
         } 
         // Line has no number prefix.
         else {
@@ -191,7 +211,8 @@ pub fn parse_spreadsheet(path: &PathBuf) -> Option<HashMap<String, Requirement>>
         };
         let req = Requirement {
             category: Rc::new(category.to_string()),
-            id: id.to_string(),
+            id: id.split(".").map(|x| x.parse::<usize>().unwrap_or(0)).collect(),
+            hash: hash.to_string(),
             contents: content.to_string(),
             status,
         };
@@ -219,9 +240,9 @@ mod tests {
         assert_eq!(reqs.len(), 12);
 
         // 2. 1.2.2 Item (@hash).
-        let req = &reqs["hash"];
+        let req = &reqs[5];
         assert_eq!(*req.category, "SYS1".to_string());
-        assert_eq!(req.id, "1.2.2".to_string());
+        assert_eq!(req.id_to_string(), "1.2.2".to_string());
         assert_eq!(req.contents, "2. 1.2.2 Item.".to_string());
     }
     #[test]
@@ -232,8 +253,31 @@ mod tests {
         // H1,CDF,1,This is the third requirement,0
         let req = &reqs["H1"];
         assert_eq!(*req.category, "CDF".to_string());
-        assert_eq!(req.id, "1".to_string());
+        assert_eq!(req.id_to_string(), "1".to_string());
         assert_eq!(req.contents, "This is the third requirement".to_string());
         assert_eq!(req.status, 0);
+    }
+    #[test]
+    fn print_to_text() {
+        let req = Requirement {
+            category: Rc::new("CAT".to_string()),
+            hash: "hash".to_string(),
+            id: vec![1, 1, 1],
+            contents: "contents.".to_string(),
+            status: 0,
+        };
+        assert_eq!(req.to_text_format(), "\t\t1. contents.(@hash)")
+    }
+    #[test]
+    fn print_to_csv() {
+        let req = Requirement {
+            category: Rc::new("CAT".to_string()),
+            hash: "hash".to_string(),
+            id: vec![1, 1, 1],
+            contents: "contents.".to_string(),
+            status: 0,
+        };
+        // Hash,Category,Id,Name,Status
+        assert_eq!(req.to_csv_format(), "hash,CAT,1.1.1,contents.,0")
     }
 }
