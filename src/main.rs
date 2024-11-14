@@ -20,7 +20,7 @@ fn main() -> Result<(), ()>{
 
     let mut overwrite_original_file = true;
     let mut do_dry_run = false;
-    let mut use_verbose_output = false;
+    let mut be_verbose = false;
 
     let mut args = clean_cli_args().into_iter().peekable();
 
@@ -51,7 +51,7 @@ fn main() -> Result<(), ()>{
             },
             "-w" | "--no-overwrite" => overwrite_original_file = false,
             "-n" | "--dry-run" => do_dry_run = true,
-            "-v" | "--verbose" => use_verbose_output = true,
+            "-v" | "--verbose" => be_verbose = true,
             "-h" | "--help" | _ => {
                 print_help();
                 return Ok(());
@@ -66,7 +66,7 @@ fn main() -> Result<(), ()>{
     }
     let input_path = input_path.unwrap();
     let categories: HashMap<String, String>;
-    (input_data, categories) = match parse_requirements(&input_path, use_verbose_output) {
+    (input_data, categories) = match parse_requirements(&input_path, be_verbose) {
         Some(data) => data,
         None => return Err(())
     };
@@ -76,7 +76,7 @@ fn main() -> Result<(), ()>{
         let arg = args.next().unwrap();
         let path = PathBuf::from(arg);
 
-        output_data = match parse_spreadsheet(&path, use_verbose_output) {
+        output_data = match parse_spreadsheet(&path, be_verbose) {
             Some(data) => data,
             None => return Err(())
         };
@@ -126,12 +126,18 @@ fn main() -> Result<(), ()>{
 
     let mut category = String::new();
 
+    if be_verbose { printinfo!("\nWriting to {output_path:?}"); }
+
     // Iterate over input data.
     // If $key exists in both input and output file, update status.
     for mut req in input_data {
+        if be_verbose { printinfo!("Writing {} {}", req.category, req.id_to_string()); }
+
         // Update status info, if data was find in spreadsheet.
         if let Some(val) = output_data.get(&req.hash) {
             req.status = val.status;
+
+            if be_verbose { printinfo!("Req also found in provided spreadsheet. Copying status..."); }
         }
         if *req.category != category {
             category = req.category.to_string();
@@ -160,8 +166,10 @@ fn main() -> Result<(), ()>{
         printerror!("Error while writing spreadsheet. {err}");
     }
 
+    if be_verbose { printinfo!("\nOverwriting {input_path:?}"); }
+
     // Writer to original requirements file.
-    let mut requirements_writer = BufWriter::new(match File::create(input_path) {
+    let mut requirements_writer = BufWriter::new(match File::create(&input_path) {
         Ok(writer) => writer,
         Err(err) => {
             printerror!("Could not open input file. {err}.");
@@ -189,7 +197,7 @@ fn print_help() {
     println!("If [spreadsheet] is a valid csv file, it is treated as a previous version and odysseus will attempt to preserve its data.");
     println!("ody will auto generate a unique id for each requirement, by taking a hash of its text contents. This id will be appended to each list item wrapped in '(@<hash>)'. However, if odysseus finds a value of this form in the input file, it will use that instead.");
     println!("\n\nOptions:");
-    println!("-h | --help\t\tShow this menu.\n-o | --output path\t\tWrite spreadsheet to $path.\n-w | --no-overwrite\t\tDon't overwrite original requirements file.\n-n | --dry-run\t\tRun command without writing to fs.")
+    println!("-h | --help\t\tShow this menu.\n-o | --output path\tWrite spreadsheet to $path.\n-w | --no-overwrite\tDon't overwrite original requirements file.\n-n | --dry-run\t\tRun command without writing to fs.")
 }
 
 fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requirement>) {

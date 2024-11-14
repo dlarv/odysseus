@@ -3,8 +3,6 @@ use std::{collections::HashMap, fs::File, hash::{DefaultHasher, Hash, Hasher}, i
 use mythos_core::{printerror, printinfo};
 use regex::Regex;
 
-const TAB_SIZE: usize = 4;
-
 struct RequirementBuilder(Regex, DefaultHasher, HashMap<String, String>);
 
 #[derive(Debug, Clone)]
@@ -101,10 +99,13 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
     let mut category = Rc::new(String::new());
     let mut prev_tab_level = 0;
 
+
+    if be_verbose { printinfo!("Reading {path:?}"); }
+
     for (i, line) in contents.split("\n").enumerate() {
         // Case 1: Skip.
         if line.is_empty() { continue; }
-        if be_verbose { printinfo!("\nLine#{i}: \"{line}\""); }
+        if be_verbose { printinfo!("Line#{i}: \"{line}\""); }
 
         let tab_level = line.replace("    ", "\t").matches("\t").count();
         // if be_verbose { printinfo!("Tab level: {0}", line.matches("\t").count()) };
@@ -136,13 +137,11 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
             // Case 2: No number => new category.
             category = parse_category(&cat_regex, &content);
             builder.add_new_category(category.clone(), &content);
-            if be_verbose { printinfo!("Added new category. Full header: {content}, Abbr: {category}"); }
             id = vec![0];
             prev_tab_level = 0;
 
             if be_verbose {
-                printinfo!("Beginning new category: {category}");
-                printinfo!("Reset id = {id:?}");
+                printinfo!("\nAdded new category. Full header: {content}, Abbr: {category}");
             }
         }
     }
@@ -217,11 +216,13 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
     };
     let mut output: HashMap<String, Requirement> = HashMap::new();
 
+    if be_verbose { printinfo!("\nReading {path:?}"); }
+
     // Hash,Category,Id,Name,Status
     for (i, line) in contents.split("\n").enumerate() {
-        if  line.is_empty() || i == 0 && line == "Hash,Category,Id,Name,Status" {
-            continue;
-        }
+        if  line.is_empty() || i == 0 && line.starts_with("Hash") { continue; }
+
+        if be_verbose { printinfo!("Line#{i}: \"{line}\""); }
 
         let values: Vec<&str> = line.split(",").collect();
         let count = values.len();
@@ -233,7 +234,7 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
         let status = match status.parse::<u8>() {
             Ok(status) => status,
             Err(_) => {
-                printerror!("Error parsing input spreadsheet on line {i}. Item #5 should be an integer.");
+                printerror!("Error parsing input spreadsheet on line {i}. Item #5 should be an integer. Line contents: \"{line}\"");
                 return None;
             }
         };
