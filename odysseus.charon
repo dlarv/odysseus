@@ -1,0 +1,10 @@
+# Example: config = [{ target = "path/to/local", alias = "alt_file_name", perms = 0x544, strip_ext = false, overwrite = false, comment = "" }]
+alias = []
+bin = [
+	{ target = "debug/cocytus", alias = "odysseus", perms = 0x755 },
+]
+config = []
+data = []
+localconfig = []
+localdata = []
+lib = []
