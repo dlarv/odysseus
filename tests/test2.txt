@@ -1,4 +1,4 @@
 Cat
 1. ASDF(@h1)
-	1.1 ASDF(@h2)
-	1.2 ASDF(@h3)
+	1 ASDF(@h2)
+	1 ASDF(@h3)

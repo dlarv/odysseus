@@ -1,0 +1,16 @@
+Requirements Translator (REQT)
+1.  Allow for status updates inside reqs text files.
+    1. Extend funcitonality for unordered lists.
+    2. Allow for markdown style todo lists.
+Admin (ADMN)
+1. Fill out readme.md.
+
+Project Managment (PROJ)
+1. Keep a list of all projects managed by odysseus.,0
+    1. Active projects.,0
+    2. Backburner projects.,0
+    3. Archived projects.,0
+2. Allow user to manage objectives/requirements from the command line.,0
+3. Open configurable environments for each project.,0
+    1. Open terminal emulators w/ configurable window names and working directories.,0
+    2. Open specified files with specific programs.,0
