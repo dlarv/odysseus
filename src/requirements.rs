@@ -155,6 +155,57 @@ fn parse_category(regex: &Regex, content: String) -> Rc<String> {
     return Rc::new(category);
 }
 
+pub fn parse_spreadsheet(path: &PathBuf) -> Option<HashMap<String, Requirement>> {
+    let contents = match File::open(path) {
+        Ok(mut file) => {
+            let mut output = String::new();
+            file.read_to_string(&mut output);
+            output
+        },
+        Err(err) => {
+            printerror!("Could not open requirements file. {err}");
+            return None;
+        },
+    };
+    let mut output: HashMap<String, Requirement> = HashMap::new();
+
+    // Hash,Category,Id,Name,Status
+    for (i, line) in contents.split("\n").enumerate() {
+        if  line.is_empty() || i == 0 && line == "Hash,Category,Id,Name,Status" {
+            continue;
+        }
+
+        let values: Vec<&str> = line.split(",").collect();
+        let count = values.len();
+        if  count != 5 {
+            printerror!("Error parsing input spreadsheet on line {i}. There should be 5 items, but found {count}. Line contents: \"{line}\"");
+            return None;
+        } 
+        let (hash, category, id, content, status) = (values[0], values[1], values[2], values[3], values[4]);
+        let status = match status.parse::<u8>() {
+            Ok(status) => status,
+            Err(_) => {
+                printerror!("Error parsing input spreadsheet on line {i}. Item #5 should be an integer.");
+                return None;
+            }
+        };
+        let req = Requirement {
+            category: Rc::new(category.to_string()),
+            id: id.to_string(),
+            contents: content.to_string(),
+            status,
+        };
+        if let Some(collision) = output.insert(hash.to_string().clone(), req.clone()) {
+            printerror!("There was a hash collision while reading the requirements file.");
+            printerror!("Original value: {collision:?}");
+            printerror!("New value (@line {i}: {hash:?}");
+            printerror!("Colliding hash: {req:?}");
+        }
+    }
+
+    return Some(output);
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -162,14 +213,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn try_parse_file() {
-        let reqs = parse_requirements(&PathBuf::from("tests/reqs.txt")).unwrap();
+    fn try_parse_requirements_file() {
+        let reqs = parse_requirements(&PathBuf::from("tests/test.txt")).unwrap();
         println!("{reqs:#?}");
         assert_eq!(reqs.len(), 12);
+
+        // 2. 1.2.2 Item (@hash).
         let req = &reqs["hash"];
-		// 2. 1.2.2 Item (@hash).
         assert_eq!(*req.category, "SYS1".to_string());
         assert_eq!(req.id, "1.2.2".to_string());
         assert_eq!(req.contents, "2. 1.2.2 Item.".to_string());
+    }
+    #[test]
+    fn try_parse_spreadsheet() {
+        let reqs = parse_spreadsheet(&PathBuf::from("tests/test.csv")).unwrap();
+        println!("{reqs:#?}");
+
+        // H1,CDF,1,This is the third requirement,0
+        let req = &reqs["H1"];
+        assert_eq!(*req.category, "CDF".to_string());
+        assert_eq!(req.id, "1".to_string());
+        assert_eq!(req.contents, "This is the third requirement".to_string());
+        assert_eq!(req.status, 0);
     }
 }
