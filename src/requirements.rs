@@ -5,7 +5,7 @@ use regex::Regex;
 
 struct RequirementBuilder(Regex, DefaultHasher);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Requirement {
     pub category: Rc<String>,
     pub id: String,
@@ -103,25 +103,25 @@ pub fn parse_requirements(path: &PathBuf) -> Option<HashMap<String, Requirement>
                     let index = id.len() - 1;
                     id[index] = item_num;
                 }
-
-                let (val, key) = builder.build(content, &id, category.clone());
-                output.insert(key, val);
             }
             else if tab_level > prev_tab_level {
                 // Append item_num to id.
                 id.push(item_num);
-                let (val, key) = builder.build(content, &id, category.clone());
-                output.insert(key, val);
             }
             else {
                 // Pop last item of id and replace.
                 id.pop();
                 let index = id.len() - 1;
                 id[index] = item_num;
-                let (val, key) = builder.build(content, &id, category.clone());
-                output.insert(key, val);
             }
             prev_tab_level = tab_level;
+            let (val, key) = builder.build(content, &id, category.clone());
+            if let Some(collision) = output.insert(key.clone(), val.clone()) {
+                printerror!("There was a hash collision while reading the requirements file.");
+                printerror!("Original value: {collision:?}");
+                printerror!("New value (@line {i}: {val:?}");
+                printerror!("Colliding hash: {key:?}");
+            }
         } 
         // Line has no number prefix.
         else {
