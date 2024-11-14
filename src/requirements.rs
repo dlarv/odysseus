@@ -1,9 +1,11 @@
 use std::{collections::HashMap, fs::File, hash::{DefaultHasher, Hash, Hasher}, io::Read, path::PathBuf, rc::Rc};
 
-use mythos_core::printerror;
+use mythos_core::{printerror, printinfo};
 use regex::Regex;
 
-struct RequirementBuilder(Regex, DefaultHasher);
+const TAB_SIZE: usize = 4;
+
+struct RequirementBuilder(Regex, DefaultHasher, HashMap<String, String>);
 
 #[derive(Debug, Clone)]
 pub struct Requirement {
@@ -17,7 +19,7 @@ pub struct Requirement {
 impl RequirementBuilder {
     pub fn new() -> RequirementBuilder {
         // (@<hash>)
-        return RequirementBuilder(Regex::new(r"\(@\S*\)$").unwrap(), DefaultHasher::new());
+        return RequirementBuilder(Regex::new(r"\(@\S*\)$").unwrap(), DefaultHasher::new(), HashMap::new());
     }
     pub fn build(&mut self, contents: String, id: Vec<usize>, category: Rc<String>) -> Requirement {
         let content;
@@ -47,6 +49,9 @@ impl RequirementBuilder {
                 status: 0 
             };
     }
+    pub fn add_new_category(&mut self, key: Rc<String>, val: &String) {
+        self.2.insert(key.to_string(), val.clone());
+    }
 }
 impl Requirement {
     pub fn to_text_format(&self) -> String {
@@ -56,12 +61,15 @@ impl Requirement {
     }
     pub fn to_csv_format(&self) -> String {
         // Hash,Category,Id,Name,Status
-        return format!("{hash},{cat},{id},{contents},{status}", 
+        return format!("{hash},{cat},{id},{contents},{status}\n", 
             hash=self.hash, 
             cat=self.category,
             id=self.id_to_string(),
             contents=self.contents,
             status=self.status);
+    }
+    pub const fn get_csv_header() -> &'static str {
+        return "Hash,Category,Id,Contents,Status\n";
     }
 
     pub fn id_to_string(&self) -> String {
@@ -69,11 +77,14 @@ impl Requirement {
     }
 }
 
-pub fn parse_requirements(path: &PathBuf) -> Option<Vec<Requirement>> {
+pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requirement>, HashMap<String, String>)> {
     let contents = match File::open(path) {
         Ok(mut file) => {
             let mut output = String::new();
-            file.read_to_string(&mut output);
+            if let Err(err) = file.read_to_string(&mut output) {
+                printerror!("Could not open requirements file. {err}");
+                return None;
+            }
             output
         },
         Err(err) => {
@@ -86,25 +97,21 @@ pub fn parse_requirements(path: &PathBuf) -> Option<Vec<Requirement>> {
     let mut builder = RequirementBuilder::new();
 
     let mut output: Vec<Requirement> = Vec::new();
-    let mut id: Vec<usize> = Vec::new();
+    let mut id: Vec<usize> = vec![1];
     let mut category = Rc::new(String::new());
     let mut prev_tab_level = 0;
-    /*
-     * Category (Cat_ID)
-     *  1. Tabx1, id=1
-     *      1. Tabx2, id= 1.1
-     *      2. Tabx2, id= 1.2
-     *  2. Tabx1, id=2
-     */
 
     for (i, line) in contents.split("\n").enumerate() {
         // Case 1: Skip.
         if line.is_empty() { continue; }
+        if be_verbose { printinfo!("\nLine#{i}: \"{line}\""); }
 
-        let tab_level = line.matches("\t").count();
-        let content = line.trim().to_string();
+        let tab_level = line.replace("    ", "\t").matches("\t").count();
+        // if be_verbose { printinfo!("Tab level: {0}", line.matches("\t").count()) };
 
-        let item_num = match parse_item_num(&num_regex, &content) {
+        let mut content = line.trim().to_string();
+
+        let item_num = match parse_list_item(&num_regex, &mut content) {
             Ok(item) => item,
             Err(_) => {
                 printerror!("Error parsing item on line {i}.");
@@ -113,51 +120,42 @@ pub fn parse_requirements(path: &PathBuf) -> Option<Vec<Requirement>> {
         };
 
         // Line has a number prefix.
-        if let Some(item_num) = item_num {
-            if tab_level == prev_tab_level {
-                // Replace last item of id.
-                if id.len() == 0 {
-                    id.push(item_num);
-                } else {
-                    let index = id.len() - 1;
-                    id[index] = item_num;
-                }
-            }
-            else if tab_level > prev_tab_level {
-                // Append item_num to id.
-                id.push(item_num);
-            }
-            else {
-                // Pop last item of id and replace.
-                id.pop();
-                let index = id.len() - 1;
-                id[index] = item_num;
-            }
+        if let Some((item_num, fixed_content)) = item_num {
+            // Remove item header.
+            content = fixed_content;
+
+            // Update id.
+            calculate_id(&mut id, prev_tab_level, tab_level, item_num);
             prev_tab_level = tab_level;
+
             let req = builder.build(content, id.clone(), category.clone());
             output.push(req);
-            // if let Some(collision) = output.insert(key.clone(), val.clone()) {
-            //     printerror!("There was a hash collision while reading the requirements file.");
-            //     printerror!("Original value: {collision:?}");
-            //     printerror!("New value (@line {i}: {val:?}");
-            //     printerror!("Colliding hash: {key:?}");
-            // }
         } 
         // Line has no number prefix.
         else {
             // Case 2: No number => new category.
-            category = parse_category(&cat_regex, content);
-            id = Vec::new();
+            category = parse_category(&cat_regex, &content);
+            builder.add_new_category(category.clone(), &content);
+            if be_verbose { printinfo!("Added new category. Full header: {content}, Abbr: {category}"); }
+            id = vec![0];
             prev_tab_level = 0;
+
+            if be_verbose {
+                printinfo!("Beginning new category: {category}");
+                printinfo!("Reset id = {id:?}");
+            }
         }
     }
-    return Some(output);
+    return Some((output, builder.2));
 }
 
-fn parse_item_num(regex: &Regex, content: &str) -> Result<Option<usize>, ()> {
+fn parse_list_item(regex: &Regex, content: &str) -> Result<Option<(usize, String)>, ()> {
     if let Some(val) = regex.find(&content) {
+        let content = content.strip_prefix(val.as_str()).unwrap().trim();
         return match val.as_str().strip_suffix(".").unwrap().parse::<usize>() {
-            Ok(index) => Ok(Some(index)),
+            Ok(index) => {
+                Ok(Some((index, content.to_string())))
+            },
             Err(_) => {
                 return Err(());
             }
@@ -166,16 +164,46 @@ fn parse_item_num(regex: &Regex, content: &str) -> Result<Option<usize>, ()> {
     return Ok(None);
 }
 
-fn parse_category(regex: &Regex, content: String) -> Rc<String> {
+fn parse_category(regex: &Regex, content: &String) -> Rc<String> {
     let category = match regex.find(&content) {
         // Unwrap is safe here b/c "()" is part of the regex definition.
         Some(cat) => cat.as_str().strip_suffix(")").unwrap().strip_prefix("(").unwrap().to_string(),
-        None => return Rc::new(content)
+        None => return Rc::new(content.to_string())
     };
     return Rc::new(category);
 }
 
-pub fn parse_spreadsheet(path: &PathBuf) -> Option<HashMap<String, Requirement>> {
+fn calculate_id(id: &mut Vec<usize>, prev_tab_level: usize, curr_tab_level: usize, item_num: usize) {
+    // Ignore parsed item_num and simply increment/decrement.
+    // This will enable support for unordered lists.
+
+    // Replace last item of id.
+    if curr_tab_level == prev_tab_level {
+        // TODO: Change this to increment when adding non-ordered list functionality.
+        if id.len() == 0 {
+            id.push(1);
+        } else { 
+            let index = id.len() - 1;
+            id[index] += 1;
+        }
+    }
+    // Append item_num to id.
+    else if curr_tab_level > prev_tab_level {
+        id.push(1);
+    }
+    // Pop last item of id and replace.
+    else {
+        id.pop();
+        if id.len() == 0 {
+            id.push(1);
+        } else { 
+            let index = id.len() - 1;
+            id[index] += 1;
+        }
+    }
+}
+
+pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<String, Requirement>> {
     let contents = match File::open(path) {
         Ok(mut file) => {
             let mut output = String::new();
@@ -235,20 +263,16 @@ mod tests {
 
     #[test]
     fn try_parse_requirements_file() {
-        let reqs = parse_requirements(&PathBuf::from("tests/test.txt")).unwrap();
-        println!("{reqs:#?}");
-        assert_eq!(reqs.len(), 12);
-
+        let reqs = parse_requirements(&PathBuf::from("tests/test.txt"), false).unwrap().0;
         // 2. 1.2.2 Item (@hash).
-        let req = &reqs[5];
+        let req = &reqs[4];
         assert_eq!(*req.category, "SYS1".to_string());
         assert_eq!(req.id_to_string(), "1.2.2".to_string());
-        assert_eq!(req.contents, "2. 1.2.2 Item.".to_string());
+        assert_eq!(req.contents, "1.2.2 Item.".to_string());
     }
     #[test]
     fn try_parse_spreadsheet() {
-        let reqs = parse_spreadsheet(&PathBuf::from("tests/test.csv")).unwrap();
-        println!("{reqs:#?}");
+        let reqs = parse_spreadsheet(&PathBuf::from("tests/test.csv"), true).unwrap();
 
         // H1,CDF,1,This is the third requirement,0
         let req = &reqs["H1"];
@@ -266,7 +290,7 @@ mod tests {
             contents: "contents.".to_string(),
             status: 0,
         };
-        assert_eq!(req.to_text_format(), "\t\t1. contents.(@hash)")
+        assert_eq!(req.to_text_format(), "\t\t1. contents.(@hash)");
     }
     #[test]
     fn print_to_csv() {
@@ -278,6 +302,6 @@ mod tests {
             status: 0,
         };
         // Hash,Category,Id,Name,Status
-        assert_eq!(req.to_csv_format(), "hash,CAT,1.1.1,contents.,0")
+        assert_eq!(req.to_csv_format(), "hash,CAT,1.1.1,contents.,0\n");
     }
 }

@@ -20,6 +20,7 @@ fn main() -> Result<(), ()>{
 
     let mut overwrite_original_file = true;
     let mut do_dry_run = false;
+    let mut use_verbose_output = false;
 
     let mut args = clean_cli_args().into_iter().peekable();
 
@@ -33,7 +34,7 @@ fn main() -> Result<(), ()>{
         if !arg.starts_with("-") {
             let path = PathBuf::from(arg);
             if !path.is_file() {
-                printerror!("Input file \"{path:?}\" does not exist.");
+                printerror!("Input file {path:?} does not exist.");
                 return Err(());
             }
             input_path = Some(path);
@@ -50,6 +51,7 @@ fn main() -> Result<(), ()>{
             },
             "-w" | "--no-overwrite" => overwrite_original_file = false,
             "-n" | "--dry-run" => do_dry_run = true,
+            "-v" | "--verbose" => use_verbose_output = true,
             "-h" | "--help" | _ => {
                 print_help();
                 return Ok(());
@@ -63,7 +65,8 @@ fn main() -> Result<(), ()>{
         return Err(());
     }
     let input_path = input_path.unwrap();
-    input_data = match parse_requirements(&input_path) {
+    let categories: HashMap<String, String>;
+    (input_data, categories) = match parse_requirements(&input_path, use_verbose_output) {
         Some(data) => data,
         None => return Err(())
     };
@@ -73,7 +76,7 @@ fn main() -> Result<(), ()>{
         let arg = args.next().unwrap();
         let path = PathBuf::from(arg);
 
-        output_data = match parse_spreadsheet(&path) {
+        output_data = match parse_spreadsheet(&path, use_verbose_output) {
             Some(data) => data,
             None => return Err(())
         };
@@ -104,7 +107,7 @@ fn main() -> Result<(), ()>{
         }
     });
 
-    printinfo!("Translating \"{input_path:?}\" -> \"{output_path:?}\"");
+    printinfo!("Translating {input_path:?} -> {output_path:?}");
     if do_dry_run {
         dry_run(input_data, output_data);
         return Ok(());
@@ -112,12 +115,34 @@ fn main() -> Result<(), ()>{
 
     let mut overwritten_input_data: Vec<String> = Vec::with_capacity(input_data.len());
 
+    // Add header to csv file.
+    let res = spreadsheet_writer.write(&Requirement::get_csv_header()
+        .chars()
+        .map(|x| x as u8)
+        .collect::<Vec<u8>>());
+    if let Err(err) = res {
+        printerror!("Error while writing spreadsheet header. {err}");
+    }
+
+    let mut category = String::new();
+
     // Iterate over input data.
     // If $key exists in both input and output file, update status.
     for mut req in input_data {
         // Update status info, if data was find in spreadsheet.
         if let Some(val) = output_data.get(&req.hash) {
             req.status = val.status;
+        }
+        if *req.category != category {
+            category = req.category.to_string();
+            let long_cat = match categories.get(&category) {
+                Some(cat) => cat,
+                None => {
+                    printerror!("Could not get category. Key={category}");
+                    return Err(());
+                }
+            };
+            overwritten_input_data.push(long_cat.to_string());
         }
 
         // Save updated and reformatted data to overwrite input file later.
@@ -144,7 +169,7 @@ fn main() -> Result<(), ()>{
         }
     });
 
-    if !overwrite_original_file {
+    if overwrite_original_file {
         let _ = requirements_writer.write_all(&overwritten_input_data
             .join("\n")
             .chars()
@@ -183,16 +208,14 @@ fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requiremen
 mod tests {
     use super::*;
 
-    // ody input output
-
     #[test]
     fn test_translate() {
         let input_path = PathBuf::from("tests/test2.txt");
         let output_path = PathBuf::from("tests/test2.csv");
-        printinfo!("Translating \"{input_path:?}\" -> \"{output_path:?}\"");
+        printinfo!("Translating {input_path:?} -> {output_path:?}");
 
-        let input_data = parse_requirements(&input_path).unwrap();
-        let output_data = parse_spreadsheet(&output_path).unwrap();
+        let input_data = parse_requirements(&input_path, true).unwrap().0;
+        let output_data = parse_spreadsheet(&output_path, true).unwrap();
         dry_run(input_data, output_data);
         // assert!(false);
         assert!(true);
