@@ -218,8 +218,8 @@ mod tests {
 
     #[test]
     fn test_translate() {
-        let input_path = PathBuf::from("tests/test2.txt");
-        let output_path = PathBuf::from("tests/test2.csv");
+        let input_path = PathBuf::from("tests/test_compare.txt");
+        let output_path = PathBuf::from("tests/test_compare.csv");
         printinfo!("Translating {input_path:?} -> {output_path:?}");
 
         let input_data = parse_requirements(&input_path, true).unwrap().0;

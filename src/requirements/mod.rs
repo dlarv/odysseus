@@ -225,10 +225,20 @@ mod tests {
 
         // H1,CDF,1,This is the third requirement,0
         let req = &reqs["H1"];
-        assert_eq!(*req.category, "CDF".to_string());
+        assert_eq!(*req.category, "ABC".to_string());
         assert_eq!(req.id_to_string(), "1".to_string());
-        assert_eq!(req.contents, "This is the third requirement".to_string());
+        assert_eq!(req.contents, "This is the first req.".to_string());
         assert_eq!(req.status, 0);
+    }
+    #[test]
+    fn test_todo_items() {
+        let reqs = parse_requirements(&PathBuf::from("tests/test_todo.txt"), true).unwrap().0;
+        let csv = parse_spreadsheet(&PathBuf::from("tests/test_todo.csv"), true).unwrap();
+        let r1 = &reqs[2];
+        let r2 = &csv["h3"];
+
+        assert_eq!(r1.to_text_format(), r2.to_text_format());
+        assert_eq!(r1.to_csv_format(), r2.to_csv_format());
     }
     #[test]
     fn print_to_text() {
