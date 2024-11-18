@@ -1,10 +1,10 @@
 Hash,Category,Id,Contents,Status
-7306480498125329633,REQT,1,Allow for status updates inside reqs text files.,1
-7448158327812678127,REQT,1.1,Extend funcitonality for unordered lists.,0
-12302806457561057298,REQT,1.2,Allow for markdown style todo lists.,0
+7306480498125329633,REQT,1,Allow for status updates inside reqs text files.,0
+7448158327812678127,REQT,1.1,Extend funcitonality for unordered lists.,1
+12302806457561057298,REQT,1.2,Allow for markdown style todo lists.,1
 2666476858404310876,ADMN,1,Fill out readme.md.,0
 16857716945170956922,PROJ,1,Keep a list of all projects managed by odysseus.,0
-16948062852778545005,PROJ,1.1,Active projects.,0
+16948062852778545005,PROJ,1.1,Active projects.,63
 10182938197553637556,PROJ,1.2,Backburner projects.,0
 6529646185013631630,PROJ,1.3,Archived projects.,0
 5820929347490519508,PROJ,2,Allow user to manage objectives/requirements from the command line.,0

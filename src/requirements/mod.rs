@@ -6,8 +6,8 @@ use std::{collections::HashMap, fs::File, hash::DefaultHasher, io::Read, path::P
 use regex::Regex;
 use mythos_core::{printerror, printinfo};
 
-#[derive(Debug)]
-enum ListItem { Ordered(usize), Unordered, Todo(char) }
+#[derive(Debug, Clone)]
+pub enum ListItem { Ordered(usize), Unordered, Todo(char) }
 
 struct ListParser(Regex);
 
@@ -19,7 +19,8 @@ pub struct Requirement {
     pub hash: String,
     pub id: Vec<usize>,
     pub contents: String,
-    pub status: u8
+    pub list_item: ListItem,
+    pub status: u8,
 }
 
 pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requirement>, HashMap<String, String>)> {
@@ -63,21 +64,15 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
         let item_num = parser.parse(&content);
 
         // Line has a number prefix.
-        if let Some((item_num, fixed_content)) = item_num {
+        if let Some((list_item, fixed_content)) = item_num {
             // Remove item header.
             content = fixed_content;
 
             // Update id.
-            calculate_id(&mut id, prev_tab_level, tab_level, &item_num);
+            calculate_id(&mut id, prev_tab_level, tab_level, &list_item);
             prev_tab_level = tab_level;
 
-            let status: char = if let ListItem::Todo(val) = item_num {
-                val
-            } else {
-                ' '
-            };
-
-            let req = builder.build(content, id.clone(), category.clone(), status);
+            let req = builder.build(content, id.clone(), category.clone(), list_item);
             output.push(req);
         } 
         // Line has no number prefix.
@@ -185,9 +180,12 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
                 return None;
             }
         };
+        let id: Vec<usize> = id.split(".").map(|x| x.parse::<usize>().unwrap_or(0)).collect(); 
+
         let req = Requirement {
             category: Rc::new(category.to_string()),
-            id: id.split(".").map(|x| x.parse::<usize>().unwrap_or(0)).collect(),
+            list_item: ListItem::Ordered(*id.last().unwrap_or(&0)),
+            id, 
             hash: hash.to_string(),
             contents: content.to_string(),
             status,
@@ -237,7 +235,9 @@ mod tests {
         let r1 = &reqs[2];
         let r2 = &csv["h3"];
 
-        assert_eq!(r1.to_text_format(), r2.to_text_format());
+        // Going from csv to txt loses info. Parser cannot know what kind of list was used, so
+        // defaults to basic ordered.
+        // assert_eq!(r1.to_text_format(), r2.to_text_format());
         assert_eq!(r1.to_csv_format(), r2.to_csv_format());
     }
     #[test]
@@ -247,6 +247,7 @@ mod tests {
             hash: "hash".to_string(),
             id: vec![1, 1, 1],
             contents: "contents.".to_string(),
+            list_item: ListItem::Ordered(1),
             status: 0,
         };
         assert_eq!(req.to_text_format(), "\t\t1. contents.(@hash)");
@@ -258,6 +259,7 @@ mod tests {
             hash: "hash".to_string(),
             id: vec![1, 1, 1],
             contents: "contents.".to_string(),
+            list_item: ListItem::Ordered(1),
             status: 0,
         };
         // Hash,Category,Id,Name,Status

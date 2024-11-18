@@ -1,4 +1,4 @@
-use super::{RequirementBuilder, Requirement};
+use super::{ListItem, Requirement, RequirementBuilder};
 
 use std::{collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, rc::Rc};
 use regex::Regex;
@@ -8,7 +8,7 @@ impl RequirementBuilder {
         // (@<hash>)
         return RequirementBuilder(Regex::new(r"\(@\S*\)$").unwrap(), DefaultHasher::new(), HashMap::new());
     }
-    pub fn build(&mut self, contents: String, id: Vec<usize>, category: Rc<String>, status: char) -> Requirement {
+    pub fn build(&mut self, contents: String, id: Vec<usize>, category: Rc<String>, list_item: ListItem) -> Requirement {
         let content;
         let hash = match self.0.find(&contents) {
             Some(hash) => {
@@ -33,19 +33,32 @@ impl RequirementBuilder {
                 id, 
                 hash,
                 contents: content,
-                status: self.map_char_to_status(status)
+                status: RequirementBuilder::map_char_to_status(&list_item),
+                list_item,
             };
     }
     pub fn add_new_category(&mut self, key: Rc<String>, val: &String) {
         self.2.insert(key.to_string(), val.clone());
     }
 
-    fn map_char_to_status(&self, ch: char) -> u8 {
+    pub fn map_char_to_status(list_item: &ListItem) -> u8 {
+        let ch = match list_item {
+            ListItem::Todo(ch) => ch,
+            _ => return 0
+        };
         return match ch {
             ' ' => 0,
             'x' => 1,
-            _ => ch as u8
+            _ => *ch as u8
+        };
+    }
+    pub fn map_status_to_char(ch: u8) -> char {
+        return match ch {
+            0 => ' ',
+            1 => 'x',
+            _ => ch as char
         };
     }
 }
+
 
