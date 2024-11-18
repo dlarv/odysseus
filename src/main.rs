@@ -12,6 +12,7 @@ use requirements::{parse_requirements, parse_spreadsheet, Requirement};
 
 
 fn main() -> Result<(), ()>{
+    let _ = set_id("COCYTUS");
     let mut input_path: Option<PathBuf> = None;
     let input_data: Vec<Requirement>;
 
