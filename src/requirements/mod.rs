@@ -1,9 +1,15 @@
-pub mod requirement_builder;
-pub mod requirement;
+mod requirement_builder;
+mod requirement;
+mod list_parser;
 
 use std::{collections::HashMap, fs::File, hash::DefaultHasher, io::Read, path::PathBuf, rc::Rc};
-use mythos_core::{printerror, printinfo};
 use regex::Regex;
+use mythos_core::{printerror, printinfo};
+
+#[derive(Debug)]
+enum ListItem { Ordered(usize), Unordered, Todo(char) }
+
+struct ListParser(Regex);
 
 struct RequirementBuilder(Regex, DefaultHasher, HashMap<String, String>);
 
@@ -31,9 +37,9 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
             return None;
         },
     };
-    let num_regex = Regex::new(r"^[0-9]+\.").unwrap();
     let cat_regex =  Regex::new(r"\(.*\)$").unwrap();
     let mut builder = RequirementBuilder::new();
+    let parser = ListParser::new();
 
     let mut output: Vec<Requirement> = Vec::new();
     let mut id: Vec<usize> = vec![1];
@@ -48,18 +54,13 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
         if line.is_empty() { continue; }
         if be_verbose { printinfo!("Line#{i}: \"{line}\""); }
 
-        let tab_level = line.replace("    ", "\t").matches("\t").count();
-        // if be_verbose { printinfo!("Tab level: {0}", line.matches("\t").count()) };
+        // let tab_level = line.replace("    ", "\t").matches("\t").count();
+        let tab_level = count_starting_tabs(&line);
+        if be_verbose { printinfo!("Tab level: {0}", line.matches(" ").count()) };
 
         let mut content = line.trim().to_string();
 
-        let item_num = match parse_list_item(&num_regex, &mut content) {
-            Ok(item) => item,
-            Err(_) => {
-                printerror!("Error parsing item on line {i}.");
-                return None;
-            },
-        };
+        let item_num = parser.parse(&content);
 
         // Line has a number prefix.
         if let Some((item_num, fixed_content)) = item_num {
@@ -67,10 +68,16 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
             content = fixed_content;
 
             // Update id.
-            calculate_id(&mut id, prev_tab_level, tab_level, item_num);
+            calculate_id(&mut id, prev_tab_level, tab_level, &item_num);
             prev_tab_level = tab_level;
 
-            let req = builder.build(content, id.clone(), category.clone());
+            let status: char = if let ListItem::Todo(val) = item_num {
+                val
+            } else {
+                ' '
+            };
+
+            let req = builder.build(content, id.clone(), category.clone(), status);
             output.push(req);
         } 
         // Line has no number prefix.
@@ -89,21 +96,6 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
     return Some((output, builder.2));
 }
 
-fn parse_list_item(regex: &Regex, content: &str) -> Result<Option<(usize, String)>, ()> {
-    if let Some(val) = regex.find(&content) {
-        let content = content.strip_prefix(val.as_str()).unwrap().trim();
-        return match val.as_str().strip_suffix(".").unwrap().parse::<usize>() {
-            Ok(index) => {
-                Ok(Some((index, content.to_string())))
-            },
-            Err(_) => {
-                return Err(());
-            }
-        };
-    } 
-    return Ok(None);
-}
-
 fn parse_category(regex: &Regex, content: &String) -> Rc<String> {
     let category = match regex.find(&content) {
         // Unwrap is safe here b/c "()" is part of the regex definition.
@@ -113,13 +105,12 @@ fn parse_category(regex: &Regex, content: &String) -> Rc<String> {
     return Rc::new(category);
 }
 
-fn calculate_id(id: &mut Vec<usize>, prev_tab_level: usize, curr_tab_level: usize, item_num: usize) {
+fn calculate_id(id: &mut Vec<usize>, prev_tab_level: usize, curr_tab_level: usize, item_num: &ListItem) {
     // Ignore parsed item_num and simply increment/decrement.
     // This will enable support for unordered lists.
 
     // Replace last item of id.
     if curr_tab_level == prev_tab_level {
-        // TODO: Change this to increment when adding non-ordered list functionality.
         if id.len() == 0 {
             id.push(1);
         } else { 
@@ -141,6 +132,18 @@ fn calculate_id(id: &mut Vec<usize>, prev_tab_level: usize, curr_tab_level: usiz
             id[index] += 1;
         }
     }
+}
+
+/// Count only the beginning whitespace. Tabs and spaces are treated as equal.
+fn count_starting_tabs(line: &str) -> usize {
+    let mut counter = 0;
+    for ch in line.chars() {
+        if !ch.is_whitespace() {
+            break;
+        }
+        counter += 1;
+    }
+    return counter;
 }
 
 pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<String, Requirement>> {
@@ -208,9 +211,10 @@ mod tests {
 
     #[test]
     fn try_parse_requirements_file() {
-        let reqs = parse_requirements(&PathBuf::from("tests/test.txt"), false).unwrap().0;
+        let reqs = parse_requirements(&PathBuf::from("tests/test.txt"), true).unwrap().0;
         // 2. 1.2.2 Item (@hash).
         let req = &reqs[4];
+        assert_eq!(*req.hash, "hash".to_string());
         assert_eq!(*req.category, "SYS1".to_string());
         assert_eq!(req.id_to_string(), "1.2.2".to_string());
         assert_eq!(req.contents, "1.2.2 Item.".to_string());

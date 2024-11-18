@@ -1,7 +1,6 @@
 use super::{RequirementBuilder, Requirement};
 
-use std::{collections::HashMap, fs::File, hash::{DefaultHasher, Hash, Hasher}, io::Read, path::PathBuf, rc::Rc};
-use mythos_core::{printerror, printinfo};
+use std::{collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, rc::Rc};
 use regex::Regex;
 
 impl RequirementBuilder {
@@ -9,7 +8,7 @@ impl RequirementBuilder {
         // (@<hash>)
         return RequirementBuilder(Regex::new(r"\(@\S*\)$").unwrap(), DefaultHasher::new(), HashMap::new());
     }
-    pub fn build(&mut self, contents: String, id: Vec<usize>, category: Rc<String>) -> Requirement {
+    pub fn build(&mut self, contents: String, id: Vec<usize>, category: Rc<String>, status: char) -> Requirement {
         let content;
         let hash = match self.0.find(&contents) {
             Some(hash) => {
@@ -34,10 +33,19 @@ impl RequirementBuilder {
                 id, 
                 hash,
                 contents: content,
-                status: 0 
+                status: self.map_char_to_status(status)
             };
     }
     pub fn add_new_category(&mut self, key: Rc<String>, val: &String) {
         self.2.insert(key.to_string(), val.clone());
     }
+
+    fn map_char_to_status(&self, ch: char) -> u8 {
+        return match ch {
+            ' ' => 0,
+            'x' => 1,
+            _ => ch as u8
+        };
+    }
 }
+
