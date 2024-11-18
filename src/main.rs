@@ -6,6 +6,7 @@ use std::{collections::HashMap, io::BufWriter};
 use std::fs::File;
 use std::path::PathBuf;
 
+use mythos_core::logger::set_id;
 use mythos_core::printinfo;
 use mythos_core::{cli::clean_cli_args, printerror};
 use requirements::{parse_requirements, parse_spreadsheet, Requirement};
