@@ -1,3 +1,5 @@
+use mythos_core::printinfo;
+
 use super::{ListItem, Requirement, RequirementBuilder};
 
 impl Requirement {
@@ -27,7 +29,11 @@ impl Requirement {
         return self.id.iter().fold(String::new(), |acc, x| format!("{acc}.{x}")).trim_matches('.').to_string();
     }
 
-    pub fn copy_status(&mut self, other: &Requirement) {
+    pub fn copy_status(&mut self, other: &Requirement, be_verbose: bool) {
+        if be_verbose && self.status != other.status { 
+            printinfo!("Overwriting status with value from csv file: {} -> {}.", self.status, other.status); 
+        }
+
         self.status = other.status;
 
         if matches!(self.list_item, ListItem::Todo(_)) {

@@ -173,10 +173,11 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
             return None;
         } 
         let (hash, category, id, content, status) = (values[0], values[1], values[2], values[3], values[4]);
-        let status = match status.parse::<u8>() {
-            Ok(status) => status,
+
+        let status = match parse_csv_status(status) {
+            Ok(val) => val,
             Err(_) => {
-                printerror!("Error parsing input spreadsheet on line {i}. Item #5 should be an integer. Line contents: \"{line}\"");
+                printerror!("Error on line {i}. Couldn't parse status. Status = \"{status}\".");
                 return None;
             }
         };
@@ -199,6 +200,17 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
     }
 
     return Some(output);
+}
+fn parse_csv_status(status: &str) -> Result<u8, ()> {
+    match status.parse::<u8>() {
+        Ok(status) => return Ok(status),
+        Err(_) => (),        
+    };
+
+    if status.len() > 1 {
+        return Err(());
+    }
+    return Ok(status.chars().nth(0).unwrap_or(0 as char) as u8);
 }
 
 #[cfg(test)]

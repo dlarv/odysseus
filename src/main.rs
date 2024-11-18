@@ -136,9 +136,8 @@ fn main() -> Result<(), ()>{
         // Update status info, if data was find in spreadsheet.
         if let Some(val) = output_data.get(&req.hash) {
             // If csv is provided, it is assumed to take authority over txt.
-            req.copy_status(&val);
+            req.copy_status(&val, be_verbose);
 
-            if be_verbose { printinfo!("Req also found in provided spreadsheet. Copying status..."); }
         }
         if *req.category != category {
             category = req.category.to_string();
