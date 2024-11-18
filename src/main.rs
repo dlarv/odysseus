@@ -13,7 +13,7 @@ use requirements::{parse_requirements, parse_spreadsheet, Requirement};
 
 
 fn main() -> Result<(), ()>{
-    let _ = set_id("COCYTUS");
+    let _ = set_id("ODYSSEUS");
     let mut input_path: Option<PathBuf> = None;
     let input_data: Vec<Requirement>;
 
@@ -26,7 +26,7 @@ fn main() -> Result<(), ()>{
 
     let mut args = clean_cli_args().into_iter().peekable();
 
-    if args.len() == 0 {
+    if args.peek().is_none() {
         print_help();
         return Ok(());
     }

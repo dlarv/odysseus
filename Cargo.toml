@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-mythos-core = { version = "0.1.0", path = "../mythos-core" }
+mythos-core = { version = "1.0.0", path = "../mythos-core" }
 regex = "1.11.1"
