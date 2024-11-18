@@ -1,5 +1,7 @@
-use std::{collections::HashMap, fs::File, hash::{DefaultHasher, Hash, Hasher}, io::Read, path::PathBuf, rc::Rc};
+pub mod requirement_builder;
+pub mod requirement;
 
+use std::{collections::HashMap, fs::File, hash::DefaultHasher, io::Read, path::PathBuf, rc::Rc};
 use mythos_core::{printerror, printinfo};
 use regex::Regex;
 
@@ -12,67 +14,6 @@ pub struct Requirement {
     pub id: Vec<usize>,
     pub contents: String,
     pub status: u8
-}
-
-impl RequirementBuilder {
-    pub fn new() -> RequirementBuilder {
-        // (@<hash>)
-        return RequirementBuilder(Regex::new(r"\(@\S*\)$").unwrap(), DefaultHasher::new(), HashMap::new());
-    }
-    pub fn build(&mut self, contents: String, id: Vec<usize>, category: Rc<String>) -> Requirement {
-        let content;
-        let hash = match self.0.find(&contents) {
-            Some(hash) => {
-                // Read hash from end of list item.
-                // Remove this value from contents.
-                let output = hash.as_str().to_string();
-                content = contents.replace(&output, "").trim().to_string();
-                // Get index of closing ')', this will either be -1 or -2.
-                let end_index = output.len() - 1;
-                output[2..end_index].to_string()
-            },
-            None => {
-                contents.hash(&mut self.1);
-                let hash = self.1.finish();
-                content = contents;
-                format!("{hash}")
-            }
-        };
-
-        return Requirement { 
-                category, 
-                id, 
-                hash,
-                contents: content,
-                status: 0 
-            };
-    }
-    pub fn add_new_category(&mut self, key: Rc<String>, val: &String) {
-        self.2.insert(key.to_string(), val.clone());
-    }
-}
-impl Requirement {
-    pub fn to_text_format(&self) -> String {
-        let tabs = "\t".repeat(self.id.len() - 1);
-        let line_num = self.id.last().unwrap_or(&0);
-        return format!("{tabs}{line_num}. {0}(@{1})", self.contents, self.hash);
-    }
-    pub fn to_csv_format(&self) -> String {
-        // Hash,Category,Id,Name,Status
-        return format!("{hash},{cat},{id},{contents},{status}\n", 
-            hash=self.hash, 
-            cat=self.category,
-            id=self.id_to_string(),
-            contents=self.contents,
-            status=self.status);
-    }
-    pub const fn get_csv_header() -> &'static str {
-        return "Hash,Category,Id,Contents,Status\n";
-    }
-
-    pub fn id_to_string(&self) -> String {
-        return self.id.iter().fold(String::new(), |acc, x| format!("{acc}.{x}")).trim_matches('.').to_string();
-    }
 }
 
 pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requirement>, HashMap<String, String>)> {
@@ -206,7 +147,10 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
     let contents = match File::open(path) {
         Ok(mut file) => {
             let mut output = String::new();
-            file.read_to_string(&mut output);
+            if let Err(err) = file.read_to_string(&mut output) {
+                printerror!("Error reading spreadsheet. \"{err}\".");
+                return None;
+            };
             output
         },
         Err(err) => {
@@ -306,3 +250,4 @@ mod tests {
         assert_eq!(req.to_csv_format(), "hash,CAT,1.1.1,contents.,0\n");
     }
 }
+
