@@ -4,7 +4,7 @@ Hash,Category,Id,Contents,Status
 12302806457561057298,REQT,1.2,Allow for markdown style todo lists.,1
 2666476858404310876,ADMN,1,Fill out readme.md.,0
 16857716945170956922,PROJ,1,Keep a list of all projects managed by odysseus.,0
-16948062852778545005,PROJ,1.1,Active projects.,63
+16948062852778545005,PROJ,1.1,Active projects.,0
 10182938197553637556,PROJ,1.2,Backburner projects.,0
 6529646185013631630,PROJ,1.3,Archived projects.,0
 5820929347490519508,PROJ,2,Allow user to manage objectives/requirements from the command line.,0

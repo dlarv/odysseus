@@ -48,16 +48,16 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
     let mut prev_tab_level = 0;
 
 
-    if be_verbose { printinfo!("Reading {path:?}"); }
+    printinfo!(be_verbose, "Reading {path:?}");
 
     for (i, line) in contents.split("\n").enumerate() {
         // Case 1: Skip.
         if line.is_empty() { continue; }
-        if be_verbose { printinfo!("Line#{i}: \"{line}\""); }
+        printinfo!(be_verbose, "Line#{i}: \"{line}\"");
 
         // let tab_level = line.replace("    ", "\t").matches("\t").count();
         let tab_level = count_starting_tabs(&line);
-        if be_verbose { printinfo!("Tab level: {0}", line.matches(" ").count()) };
+        printinfo!(be_verbose, "Tab level: {0}", line.matches(" ").count());
 
         let mut content = line.trim().to_string();
 
@@ -83,9 +83,7 @@ pub fn parse_requirements(path: &PathBuf, be_verbose: bool) -> Option<(Vec<Requi
             id = vec![0];
             prev_tab_level = 0;
 
-            if be_verbose {
-                printinfo!("\nAdded new category. Full header: {content}, Abbr: {category}");
-            }
+            printinfo!(be_verbose, "\nAdded new category. Full header: {content}, Abbr: {category}");
         }
     }
     return Some((output, builder.2));
@@ -158,13 +156,13 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
     };
     let mut output: HashMap<String, Requirement> = HashMap::new();
 
-    if be_verbose { printinfo!("\nReading {path:?}"); }
+    printinfo!(be_verbose, "\nReading {path:?}");
 
     // Hash,Category,Id,Name,Status
     for (i, line) in contents.split("\n").enumerate() {
         if  line.is_empty() || i == 0 && line.starts_with("Hash") { continue; }
 
-        if be_verbose { printinfo!("Line#{i}: \"{line}\""); }
+        printinfo!(be_verbose, "Line#{i}: \"{line}\"");
 
         let values: Vec<&str> = line.split(",").collect();
         let count = values.len();

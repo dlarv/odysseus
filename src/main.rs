@@ -2,6 +2,7 @@ mod requirements;
 
 use std::ffi::OsString;
 use std::io::Write;
+use std::iter::Peekable;
 use std::{collections::HashMap, io::BufWriter};
 use std::fs::File;
 use std::path::PathBuf;
@@ -54,10 +55,15 @@ fn main() -> Result<(), ()>{
             "-w" | "--no-overwrite" => overwrite_original_file = false,
             "-n" | "--dry-run" => do_dry_run = true,
             "-v" | "--verbose" => be_verbose = true,
+            "-p" | "--proj" => {
+                start_project_mode(args);
+                return Ok(());
+            },
             "-h" | "--help" | _ => {
                 print_help();
                 return Ok(());
-            }
+            },
+
         }
     }
 
@@ -128,12 +134,12 @@ fn main() -> Result<(), ()>{
 
     let mut category = String::new();
 
-    if be_verbose { printinfo!("\nWriting to {output_path:?}"); }
+    printinfo!(be_verbose, "\nWriting to {output_path:?}");
 
     // Iterate over input data.
     // If $key exists in both input and output file, update status.
     for mut req in input_data {
-        if be_verbose { printinfo!("Writing {} {}", req.category, req.id_to_string()); }
+        printinfo!(be_verbose, "Writing {} {}", req.category, req.id_to_string());
 
         // Update status info, if data was find in spreadsheet.
         if let Some(val) = output_data.get(&req.hash) {
@@ -168,7 +174,7 @@ fn main() -> Result<(), ()>{
         printerror!("Error while writing spreadsheet. {err}");
     }
 
-    if be_verbose { printinfo!("\nOverwriting {input_path:?}"); }
+    printinfo!(be_verbose, "\nOverwriting {input_path:?}");
 
     // Writer to original requirements file.
     let mut requirements_writer = BufWriter::new(match File::create(&input_path) {
@@ -199,7 +205,12 @@ fn print_help() {
     println!("If [spreadsheet] is a valid csv file, it is treated as a previous version and odysseus will attempt to preserve its data.");
     println!("ody will auto generate a unique id for each requirement, by taking a hash of its text contents. This id will be appended to each list item wrapped in '(@<hash>)'. However, if odysseus finds a value of this form in the input file, it will use that instead.");
     println!("\n\nOptions:");
-    println!("-h | --help\t\tShow this menu.\n-o | --output path\tWrite spreadsheet to $path.\n-w | --no-overwrite\tDon't overwrite original requirements file.\n-n | --dry-run\t\tRun command without writing to fs.")
+    println!("-h | --help\t\tShow this menu.\n-o | --output path\tWrite spreadsheet to $path.\n-w | --no-overwrite\tDon't overwrite original requirements file.\n-n | --dry-run\t\tRun command without writing to fs.");
+
+    println!("\nProject Mode");
+    println!("ody -p [options]");
+    println!("Use -p to run odysseus in project mode. This lets you manage projects and objectives.")
+
 }
 
 fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requirement>) {
@@ -212,6 +223,9 @@ fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requiremen
             req.status = val.status;
         }
     }
+}
+
+fn start_project_mode(args: Peekable<impl Iterator>) {
 }
 
 #[cfg(test)]
