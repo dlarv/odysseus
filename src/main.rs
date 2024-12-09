@@ -206,11 +206,6 @@ fn print_help() {
     println!("ody will auto generate a unique id for each requirement, by taking a hash of its text contents. This id will be appended to each list item wrapped in '(@<hash>)'. However, if odysseus finds a value of this form in the input file, it will use that instead.");
     println!("\n\nOptions:");
     println!("-h | --help\t\tShow this menu.\n-o | --output path\tWrite spreadsheet to $path.\n-w | --no-overwrite\tDon't overwrite original requirements file.\n-n | --dry-run\t\tRun command without writing to fs.");
-
-    println!("\nProject Mode");
-    println!("ody -p [options]");
-    println!("Use -p to run odysseus in project mode. This lets you manage projects and objectives.")
-
 }
 
 fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requirement>) {
