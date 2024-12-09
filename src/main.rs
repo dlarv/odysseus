@@ -122,9 +122,11 @@ fn main() -> Result<(), ()>{
 
     // Add header to csv file.
     let output = if use_markdown_output {
-        Requirement::get_csv_header()
-    } else {
+        printinfo!(be_verbose, "Using markdown style header.");
         Requirement::get_md_header()
+    } else {
+        printinfo!(be_verbose, "Using csv style header.");
+        Requirement::get_csv_header()
     };
     let res = spreadsheet_writer.write(&output
         .chars()
