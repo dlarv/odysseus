@@ -98,7 +98,12 @@ fn main() -> Result<(), ()>{
         PathBuf::from(input_path.clone().parent().unwrap_or(PathBuf::from(".").as_path())
             .file_stem()
             .unwrap_or(&OsString::from("requirements")))
-            .with_extension("csv")
+            .with_extension(
+                if use_markdown_output {
+                    "csv.md"
+                } else {
+                    "csv"
+                })
     } else {
         output_path.unwrap()
     };
