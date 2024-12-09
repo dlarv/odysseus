@@ -21,8 +21,19 @@ impl Requirement {
             contents=self.contents,
             status=self.status);
     }
+    pub fn to_md_format(&self) -> String {
+        return format!("|{hash}|{cat}|{id}|{contents}|{status}|\n", 
+            hash=self.hash, 
+            cat=self.category,
+            id=self.id_to_string(),
+            contents=self.contents,
+            status=self.status);
+    }
     pub const fn get_csv_header() -> &'static str {
         return "Hash,Category,Id,Contents,Status\n";
+    }
+    pub const fn get_md_header() -> &'static str {
+        return "|Hash|Category|Id|Contents|Status|\n|---|---|---|---|---|\n";
     }
 
     pub fn id_to_string(&self) -> String {
@@ -40,6 +51,9 @@ impl Requirement {
             self.list_item = ListItem::Todo(RequirementBuilder::map_status_to_char(self.status));
         }
 
+    }
+    pub fn check_md_header(line: &str) -> bool {
+        return line.starts_with("|Hash|");
     }
 }
 

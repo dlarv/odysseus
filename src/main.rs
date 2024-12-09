@@ -2,7 +2,6 @@ mod requirements;
 
 use std::ffi::OsString;
 use std::io::Write;
-use std::iter::Peekable;
 use std::{collections::HashMap, io::BufWriter};
 use std::fs::File;
 use std::path::PathBuf;
@@ -24,6 +23,7 @@ fn main() -> Result<(), ()>{
     let mut overwrite_original_file = true;
     let mut do_dry_run = false;
     let mut be_verbose = false;
+    let mut use_markdown_output = false;
 
     let mut args = clean_cli_args().into_iter().peekable();
 
@@ -52,13 +52,10 @@ fn main() -> Result<(), ()>{
                 }
                 output_path = Some(PathBuf::from(arg));
             },
+            "-m" | "--markdown" => use_markdown_output = true,
             "-w" | "--no-overwrite" => overwrite_original_file = false,
             "-n" | "--dry-run" => do_dry_run = true,
             "-v" | "--verbose" => be_verbose = true,
-            "-p" | "--proj" => {
-                start_project_mode(args);
-                return Ok(());
-            },
             "-h" | "--help" | _ => {
                 print_help();
                 return Ok(());
@@ -124,7 +121,12 @@ fn main() -> Result<(), ()>{
     let mut overwritten_input_data: Vec<String> = Vec::with_capacity(input_data.len());
 
     // Add header to csv file.
-    let res = spreadsheet_writer.write(&Requirement::get_csv_header()
+    let output = if use_markdown_output {
+        Requirement::get_csv_header()
+    } else {
+        Requirement::get_md_header()
+    };
+    let res = spreadsheet_writer.write(&output
         .chars()
         .map(|x| x as u8)
         .collect::<Vec<u8>>());
@@ -162,7 +164,12 @@ fn main() -> Result<(), ()>{
         // Save updated and reformatted data to overwrite input file later.
         overwritten_input_data.push(req.to_text_format());
 
-        let res = spreadsheet_writer.write(&req.to_csv_format()
+        let output = if use_markdown_output {
+            req.to_md_format()
+        } else {
+            req.to_csv_format()
+        };
+        let res = spreadsheet_writer.write(&output
             .chars()
             .map(|x| x as u8)
             .collect::<Vec<u8>>());
@@ -205,7 +212,7 @@ fn print_help() {
     println!("If [spreadsheet] is a valid csv file, it is treated as a previous version and odysseus will attempt to preserve its data.");
     println!("ody will auto generate a unique id for each requirement, by taking a hash of its text contents. This id will be appended to each list item wrapped in '(@<hash>)'. However, if odysseus finds a value of this form in the input file, it will use that instead.");
     println!("\n\nOptions:");
-    println!("-h | --help\t\tShow this menu.\n-o | --output path\tWrite spreadsheet to $path.\n-w | --no-overwrite\tDon't overwrite original requirements file.\n-n | --dry-run\t\tRun command without writing to fs.");
+    println!("-h | --help\t\tShow this menu.\n-o | --output path\tWrite spreadsheet to $path.\n-w | --no-overwrite\tDon't overwrite original requirements file.\n-n | --dry-run\t\tRun command without writing to fs.\n-m | --markdown\t\tSave output as markdown style table instead of csv.");
 }
 
 fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requirement>) {
@@ -220,8 +227,6 @@ fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requiremen
     }
 }
 
-fn start_project_mode(args: Peekable<impl Iterator>) {
-}
 
 #[cfg(test)]
 mod tests {

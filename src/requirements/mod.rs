@@ -158,13 +158,34 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
 
     printinfo!(be_verbose, "\nReading {path:?}");
 
+    // Detect whether this is a csv file or md.
+    let mut use_md_format: bool = false;
+
     // Hash,Category,Id,Name,Status
     for (i, line) in contents.split("\n").enumerate() {
-        if  line.is_empty() || i == 0 && line.starts_with("Hash") { continue; }
+        if line.is_empty() { continue; }
+        if i == 0 {
+            if Requirement::check_md_header(&line) {
+                printinfo!(be_verbose, "Md header detected: \"{line}\".");
+                use_md_format = true;
+            } else {
+                printinfo!(be_verbose, "Csv header detected: \"{line}\".");
+            }
+            continue;
+        }
+        // Second line of md will be "|---|---|---..."
+        if i == 1 && use_md_format {
+            continue;
+        }
 
         printinfo!(be_verbose, "Line#{i}: \"{line}\"");
 
-        let values: Vec<&str> = line.split(",").collect();
+        let values: Vec<&str> = if use_md_format {
+            parse_md_line(&line, i)?
+        } else {
+            line.split(",").collect()
+        };
+
         let count = values.len();
         if  count != 5 {
             printerror!("Error parsing input spreadsheet on line {i}. There should be 5 items, but found {count}. Line contents: \"{line}\"");
@@ -211,6 +232,25 @@ fn parse_csv_status(status: &str) -> Result<u8, ()> {
     return Ok(status.chars().nth(0).unwrap_or(0 as char) as u8);
 }
 
+fn parse_md_line<'a>(line: &'a str, i: usize) -> Option<Vec<&'a str>> {
+    let line = match line.strip_prefix("|") {
+        Some(line) => line,
+        None => {
+            printerror!("Error parsing input spreadsheet on line {i}. Markdown style tables must begin and end with '|'.");
+            return None;
+        }
+    };
+    let line = match line.strip_suffix("|") {
+        Some(line) => line,
+        None => {
+            printerror!("Error parsing input spreadsheet on line {i}. Markdown style tables must begin and end with '|'.");
+            return None;
+        }
+    };
+
+    return Some(line.split("|").collect());
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -230,6 +270,17 @@ mod tests {
     #[test]
     fn try_parse_spreadsheet() {
         let reqs = parse_spreadsheet(&PathBuf::from("tests/test.csv"), true).unwrap();
+
+        // H1,CDF,1,This is the third requirement,0
+        let req = &reqs["H1"];
+        assert_eq!(*req.category, "ABC".to_string());
+        assert_eq!(req.id_to_string(), "1".to_string());
+        assert_eq!(req.contents, "This is the first req.".to_string());
+        assert_eq!(req.status, 0);
+    }
+    #[test]
+    fn try_parse_md_spreadsheet() {
+        let reqs = parse_spreadsheet(&PathBuf::from("tests/test.md"), true).unwrap();
 
         // H1,CDF,1,This is the third requirement,0
         let req = &reqs["H1"];
@@ -274,6 +325,19 @@ mod tests {
         };
         // Hash,Category,Id,Name,Status
         assert_eq!(req.to_csv_format(), "hash,CAT,1.1.1,contents.,0\n");
+    }
+    #[test]
+    fn print_to_md() {
+        let req = Requirement {
+            category: Rc::new("CAT".to_string()),
+            hash: "hash".to_string(),
+            id: vec![1, 1, 1],
+            contents: "contents.".to_string(),
+            list_item: ListItem::Ordered(1),
+            status: 0,
+        };
+        // Hash,Category,Id,Name,Status
+        assert_eq!(req.to_md_format(), "|hash|CAT|1.1.1|contents.|0|\n");
     }
 }
 
