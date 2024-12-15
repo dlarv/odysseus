@@ -44,6 +44,7 @@ impl RequirementBuilder {
     pub fn map_char_to_status(list_item: &ListItem) -> u8 {
         let ch = match list_item {
             ListItem::Todo(ch) => ch,
+            ListItem::Hybrid(_, ch) => ch,
             _ => return 0
         };
         return match ch {

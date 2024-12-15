@@ -7,7 +7,7 @@ use regex::Regex;
 use mythos_core::{printerror, printinfo};
 
 #[derive(Debug, Clone)]
-pub enum ListItem { Ordered(usize), Unordered, Todo(char) }
+pub enum ListItem { Ordered(usize), Unordered, Todo(char), Hybrid(usize, char) }
 
 struct ListParser(Regex);
 
@@ -202,9 +202,16 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
         };
         let id: Vec<usize> = id.split(".").map(|x| x.parse::<usize>().unwrap_or(0)).collect(); 
 
+        let ch = RequirementBuilder::map_status_to_char(status);
+        let list_item = if ch != ' ' {
+            ListItem::Hybrid(*id.last().unwrap_or(&0), ch)
+        } else {
+            ListItem::Ordered(*id.last().unwrap_or(&0))
+        };
+
         let req = Requirement {
             category: Rc::new(category.to_string()),
-            list_item: ListItem::Ordered(*id.last().unwrap_or(&0)),
+            list_item,
             id, 
             hash: hash.to_string(),
             contents: content.to_string(),
@@ -300,6 +307,16 @@ mod tests {
         // defaults to basic ordered.
         // assert_eq!(r1.to_text_format(), r2.to_text_format());
         assert_eq!(r1.to_csv_format(), r2.to_csv_format());
+    }
+    #[test]
+    fn test_hybrid_items() {
+        let reqs = parse_requirements(&PathBuf::from("tests/test_hybrid.txt"), true).unwrap().0;
+        let csv = parse_spreadsheet(&PathBuf::from("tests/test_hybrid.csv"), true).unwrap();
+        let r1 = &reqs[0];
+        let r2 = &csv["h1"];
+
+        assert_ne!(r1.to_csv_format(), r2.to_csv_format());
+        assert_eq!(r2.to_text_format(), "1. [x] ASDF(@h1)");
     }
     #[test]
     fn print_to_text() {

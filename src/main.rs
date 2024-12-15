@@ -223,14 +223,17 @@ fn print_help() {
 }
 
 fn dry_run(input_data: Vec<Requirement>, output_data: HashMap<String, Requirement>) {
-    println!("READ: {output_data:?}");
+    println!();
     for mut req in input_data {
+        println!("READ TXT: {}", req.to_text_format());
+
         // Update status info, if data was find in spreadsheet.
-        println!("READ: {}", req.to_csv_format());
         if let Some(val) = output_data.get(&req.hash) {
-            println!("EDIT: {} -> {}", req.status, val.status);
+            println!("COMPARE TO CSV: {}", val.to_csv_format().trim_end());
+            println!("EDIT STATUS: {} -> {}", req.status, val.status);
             req.status = val.status;
         }
+        println!("WRITE TXT -> CSV: {} ", req.to_csv_format());
     }
 }
 

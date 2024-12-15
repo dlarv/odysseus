@@ -9,6 +9,7 @@ impl Requirement {
             super::ListItem::Ordered(num) => format!("{num}."),
             super::ListItem::Unordered => format!("-"),
             super::ListItem::Todo(ch) => format!("- [{ch}]"),
+            super::ListItem::Hybrid(num, ch) => format!("{num}. [{ch}]"),
         };
         return format!("{tabs}{line_num} {0}(@{1})", self.contents, self.hash);
     }
@@ -46,11 +47,17 @@ impl Requirement {
         }
 
         self.status = other.status;
-
-        if matches!(self.list_item, ListItem::Todo(_)) {
-            self.list_item = ListItem::Todo(RequirementBuilder::map_status_to_char(self.status));
+        match self.list_item {
+            ListItem::Todo(_) => {
+                self.list_item = ListItem::Todo(RequirementBuilder::map_status_to_char(self.status));
+            },
+            ListItem::Hybrid(num, _) => {
+                self.list_item = ListItem::Hybrid(
+                    num, 
+                    RequirementBuilder::map_status_to_char(self.status));
+            },
+            _ => ()
         }
-
     }
     pub fn check_md_header(line: &str) -> bool {
         return line.starts_with("|Hash|");
