@@ -178,12 +178,12 @@ pub fn parse_spreadsheet(path: &PathBuf, be_verbose: bool) -> Option<HashMap<Str
             continue;
         }
 
-        printinfo!(be_verbose, "Line#{i}: \"{line}\"");
+        // printinfo!(be_verbose, "Line#{i}: \"{line}\"");
 
         let values: Vec<&str> = if use_md_format {
             parse_md_line(&line, i)?
         } else {
-            line.split(",").collect()
+            line.split(",").map(|x| x.trim()).collect()
         };
 
         let count = values.len();
@@ -255,7 +255,7 @@ fn parse_md_line<'a>(line: &'a str, i: usize) -> Option<Vec<&'a str>> {
         }
     };
 
-    return Some(line.split("|").collect());
+    return Some(line.split("|").map(|x| x.trim()).collect());
 }
 
 #[cfg(test)]

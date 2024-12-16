@@ -56,11 +56,29 @@ impl Requirement {
                     num, 
                     RequirementBuilder::map_status_to_char(self.status));
             },
-            _ => ()
+            ListItem::Unordered => {
+                if self.status == 1 {
+                    self.list_item = ListItem::Todo(RequirementBuilder::map_status_to_char(self.status));
+                }
+            },
+            ListItem::Ordered(num) => {
+                if self.status != 0 {
+                    self.list_item = ListItem::Hybrid(
+                        num,
+                        RequirementBuilder::map_status_to_char(self.status));
+                }
+            }
         }
     }
     pub fn check_md_header(line: &str) -> bool {
-        return line.starts_with("|Hash|");
+        // Remove all whitespace.
+        let mut cleaned_line = String::new();
+        for ch in line.chars() {
+            if !ch.is_whitespace() {
+                cleaned_line.push(ch);
+            }
+        }
+        return cleaned_line.starts_with("|Hash|");
     }
 }
 

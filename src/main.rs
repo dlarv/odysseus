@@ -81,11 +81,6 @@ fn main() -> Result<(), ()>{
         let arg = args.next().unwrap();
         let path = PathBuf::from(arg);
 
-        output_data = match parse_spreadsheet(&path, be_verbose) {
-            Some(data) => data,
-            None => return Err(())
-        };
-
         // If user did not override output path, use provided spreadsheet path.
         if output_path.is_none() {
             output_path = Some(path);
@@ -95,6 +90,7 @@ fn main() -> Result<(), ()>{
 
     // If user did not provide a -o arg or a spreadsheet file, output to ./<input_file_name>.csv.
     let output_path = if output_path.is_none() {
+        printinfo!("No previous csv file provided.");
         PathBuf::from(input_path.clone().parent().unwrap_or(PathBuf::from(".").as_path())
             .file_stem()
             .unwrap_or(&OsString::from("requirements")))
@@ -105,8 +101,16 @@ fn main() -> Result<(), ()>{
                     "csv"
                 })
     } else {
-        output_path.unwrap()
+        let o = output_path.unwrap();
+        output_data = match parse_spreadsheet(&o, be_verbose) {
+            Some(data) => data,
+            None => return Err(())
+        };
+        printinfo!("Previous csv file provided. Reading from {o:?}.");
+        o
+
     };
+    println!("{output_data:?}");
 
     // Writer to spreadsheet file.
     let mut spreadsheet_writer = BufWriter::new(match File::create(&output_path) {
@@ -148,13 +152,13 @@ fn main() -> Result<(), ()>{
     // Iterate over input data.
     // If $key exists in both input and output file, update status.
     for mut req in input_data {
-        printinfo!(be_verbose, "Writing {} {}", req.category, req.id_to_string());
+        printinfo!(be_verbose, "READ TXT: {}", req.to_text_format());
 
         // Update status info, if data was find in spreadsheet.
         if let Some(val) = output_data.get(&req.hash) {
+            printinfo!(be_verbose, "COMPARE TO CSV: {}", val.to_csv_format().trim_end());
             // If csv is provided, it is assumed to take authority over txt.
             req.copy_status(&val, be_verbose);
-
         }
         if *req.category != category {
             category = req.category.to_string();
@@ -170,6 +174,7 @@ fn main() -> Result<(), ()>{
 
         // Save updated and reformatted data to overwrite input file later.
         overwritten_input_data.push(req.to_text_format());
+        printinfo!(be_verbose, "WRITE TXT -> CSV: {} ", req.to_csv_format());
 
         let output = if use_markdown_output {
             req.to_md_format()
