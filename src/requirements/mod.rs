@@ -1,6 +1,7 @@
 mod requirement_builder;
 mod requirement;
 mod list_parser;
+mod category;
 
 use std::{collections::HashMap, fs::File, hash::DefaultHasher, io::Read, path::PathBuf, rc::Rc};
 use regex::Regex;
@@ -12,6 +13,13 @@ pub enum ListItem { Ordered(usize), Unordered, Todo(char), Hybrid(usize, char) }
 struct ListParser(Regex);
 
 struct RequirementBuilder(Regex, DefaultHasher, HashMap<String, String>);
+
+#[derive(Debug, Clone)]
+pub struct Category {
+    short_name: Option<String>,
+    long_name: String,
+    md_header_level: u8,
+}
 
 #[derive(Debug, Clone)]
 pub struct Requirement {
