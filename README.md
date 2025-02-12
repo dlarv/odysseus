@@ -1,12 +1,3 @@
-List of requirements.
-Specifications explain how requirements will be implemented and integrated.
-Requirements and specifications are combined and expanded into todo items.
-
-I want these documents to be better localized (relevant info in the same area).
-I want these items to be easier to extend/amend/etc.
-I want to be able to organize these items into version updates/make a roadmap.
-
-
 Turn a markdown style list of requirements into a spreadsheet.
 
 ody [options] list-file [spreadsheet-file]
@@ -72,10 +63,8 @@ Todo lists:
 - [ ] Item (status=0)
 - [x] Item (status=1)
 Any single character can be placed in the '[]', which is used to determine the item's status. ' ' and 'x' are special cases, being interpreted as 0 and 1 respectively. All other characters are interpreted as their respective ascii values.
-
-Hybrid lists (combination of ordered and todo):
-1. [ ]
 ```
+
 ### Spreadsheet File
 The spreadsheet file is a csv file with the following columns:
     ```Hash,Category,Id,Contents,Status,Objective```
@@ -98,8 +87,6 @@ Once both files have been loaded, odysseus will check to see if an item exists i
 | !Exists   | Exists      | Item is deleted. |
 
 This means that the spreadsheet is used as an authority on a requirement's status and goal, while the list is the authority on everything else. This means that the id, contents, category, and hash are always drawn from the list.
-
-When overwriting the txt file, if the csv provided a non-zero status, it will be saved as a hybrid list. Otherwise, it will be ordered.
 
 ## Project Manager
 Though a few commands are exposed on the command line, this mode is primarily intended to be used via the tui. This tui can be accessed by using the -pT option, or just -p to access the cli.
