@@ -1,6 +1,5 @@
 use std::sync::LazyLock;
 
-use mythos_core::printwarn;
 use regex::Regex;
 
 use super::Category;
@@ -106,5 +105,4 @@ mod tests {
         let cat = Category::new("# Header 1 (H1)").unwrap();
         assert_eq!(cat.to_text_format(), "# Header 1 (H1)");
     }
-
 }

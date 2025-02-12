@@ -1,3 +1,12 @@
+List of requirements.
+Specifications explain how requirements will be implemented and integrated.
+Requirements and specifications are combined and expanded into todo items.
+
+I want these documents to be better localized (relevant info in the same area).
+I want these items to be easier to extend/amend/etc.
+I want to be able to organize these items into version updates/make a roadmap.
+
+
 Turn a markdown style list of requirements into a spreadsheet.
 
 ody [options] list-file [spreadsheet-file]
